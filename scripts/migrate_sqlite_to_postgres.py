@@ -57,7 +57,7 @@ def resolve_pg_url() -> str:
     port = os.environ.get('CRM_PG_PORT', '5433')
     user = os.environ.get('CRM_PG_USER', 'crm')
     db   = os.environ.get('CRM_PG_DB',   'crm')
-    return f"postgresql://{user}:***@{host}:{port}/{db}"
+    return f"postgresql://{user}:{pw}@{host}:{port}/{db}"
 
 
 def _GETENV(key, default):
