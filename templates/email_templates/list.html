@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'email_templates' %}
+{% block title %}Email Templates - Modular CRM{% endblock %}
+{% block page_title %}Email Templates{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <input type="search" id="search-input" class="search-input" placeholder="Search templates..." />
+    <input type="text" id="category-filter" class="search-input" placeholder="Category..." />
+    <div class="filter-spacer"></div>
+    <a class="btn btn-primary" href="/email-templates/new">+ New Template</a>
+</div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Subject</th>
+                <th>Category</th>
+                <th>Uses</th>
+                <th>Active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="tpl-tbody">
+            <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        async function reload() {
+            const q = document.getElementById('search-input').value;
+            const cat = document.getElementById('category-filter').value;
+            const params = new URLSearchParams();
+            if (q) params.set('q', q);
+            if (cat) params.set('category', cat);
+            const list = await apiGet('/email-templates/api/templates?' + params.toString());
+            const tbody = document.getElementById('tpl-tbody');
+            if (!list || !list.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">No templates yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map(t => `
+                <tr>
+                    <td><a href="/email-templates/${t.id}" class="link-strong">${escapeHtml(t.name)}</a></td>
+                    <td>${escapeHtml(t.subject)}</td>
+                    <td>${escapeHtml(t.category || '')}</td>
+                    <td>${t.use_count || 0}</td>
+                    <td>${t.is_active ? '<span class="badge-ok">Yes</span>' : '<span class="badge-open">No</span>'}</td>
+                    <td class="row-actions">
+                        <a class="btn btn-xs" href="/email-templates/${t.id}/edit">Edit</a>
+                        <button class="btn btn-xs btn-danger" onclick="del('${t.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        document.getElementById('search-input').addEventListener('input', debounce(reload, 250));
+        document.getElementById('category-filter').addEventListener('input', debounce(reload, 250));
+        reload();
+    });
+
+    async function del(id) {
+        if (!confirm('Delete this template?')) return;
+        await apiDelete('/email-templates/api/templates/' + id);
+        location.reload();
+    }
+</script>
+{% endblock %}

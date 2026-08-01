@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'companies' %}
+{% block title %}{{ company.name }} - Modular CRM{% endblock %}
+{% block page_title %}Company Details{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <div class="detail-title">
+            <h2>{{ company.name }}</h2>
+            <span class="status-badge status-{{ company.status }}">{{ company.status }}</span>
+        </div>
+        <div class="detail-actions">
+            <a class="btn btn-secondary" href="/companies/{{ company.id }}/edit">Edit</a>
+            <a class="btn btn-secondary" href="/companies/">Back</a>
+        </div>
+    </div>
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Company Info</h3>
+            <div class="detail-row"><strong>Industry:</strong> {{ company.industry or '—' }}</div>
+            <div class="detail-row"><strong>Website:</strong> {{ company.website or '—' }}</div>
+            <div class="detail-row"><strong>Email:</strong> {{ company.email or '—' }}</div>
+            <div class="detail-row"><strong>Phone:</strong> {{ company.phone or '—' }}</div>
+            <div class="detail-row"><strong>Address:</strong> {{ company.address or '—' }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Tags</h3>
+            {% if company.tags %}
+                <div class="tags">
+                    {% for tag in company.tags %}
+                        <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty">No tags.</div>
+            {% endif %}
+        </div>
+        <div class="detail-card">
+            <h3>Contacts ({{ company.contacts | length }})</h3>
+            {% if company.contacts %}
+                <ul class="relation-list">
+                    {% for contact in company.contacts %}
+                        <li><a href="/contacts/{{ contact.id }}">{{ contact.full_name() }}</a></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="empty">No contacts linked.</div>
+            {% endif %}
+        </div>
+        <div class="detail-card full-width">
+            <h3>Notes</h3>
+            <div class="notes">{{ company.notes or 'No notes.' }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

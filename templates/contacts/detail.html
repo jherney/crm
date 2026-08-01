@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'contacts' %}
+{% block title %}{{ contact.full_name() }} - Modular CRM{% endblock %}
+{% block page_title %}Contact Details{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <div class="detail-title">
+            <h2>{{ contact.full_name() }}</h2>
+            <span class="status-badge status-{{ contact.status }}">{{ contact.status }}</span>
+        </div>
+        <div class="detail-actions">
+            <a class="btn btn-secondary" href="/contacts/{{ contact.id }}/edit">Edit</a>
+            <a class="btn btn-secondary" href="/contacts/">Back</a>
+        </div>
+    </div>
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Contact Info</h3>
+            <div class="detail-row"><strong>Email:</strong> {{ contact.email or '—' }}</div>
+            <div class="detail-row"><strong>Phone:</strong> {{ contact.phone or '—' }}</div>
+            <div class="detail-row"><strong>Title:</strong> {{ contact.title or '—' }}</div>
+            <div class="detail-row">
+                <strong>Company:</strong>
+                {% if contact.company %}
+                    <a href="/companies/{{ contact.company.id }}">{{ contact.company.name }}</a>
+                {% else %}—{% endif %}
+            </div>
+        </div>
+        <div class="detail-card">
+            <h3>Tags</h3>
+            {% if contact.tags %}
+                <div class="tags">
+                    {% for tag in contact.tags %}
+                        <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty">No tags.</div>
+            {% endif %}
+        </div>
+        <div class="detail-card full-width">
+            <h3>Notes</h3>
+            <div class="notes">{{ contact.notes or 'No notes.' }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

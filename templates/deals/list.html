@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'deals' %}
+{% block title %}Deals - Modular CRM{% endblock %}
+{% block page_title %}Deals{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <input type="search" id="search-input" placeholder="Search deals..." class="search-input" />
+    <select id="stage-filter" class="filter-select">
+        <option value="">All Stages</option>
+    </select>
+    <select id="sort-select" class="filter-select">
+        <option value="-created_at">Newest first</option>
+        <option value="-value">Highest value</option>
+        <option value="value">Lowest value</option>
+        <option value="name">Name (A–Z)</option>
+        <option value="expected_close_date">Expected close date</option>
+    </select>
+    <div class="filter-spacer"></div>
+    <a class="btn btn-secondary" href="/deals/pipeline">📊 Pipeline Board</a>
+    <a class="btn btn-primary" href="/deals/new">+ New Deal</a>
+</div>
+
+<div class="deal-stats" id="deal-stats"></div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Deal</th>
+                <th>Company</th>
+                <th>Contact</th>
+                <th>Value</th>
+                <th>Stage</th>
+                <th>Probability</th>
+                <th>Expected Close</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="deals-tbody">
+            <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const stages = await apiGet('/deals/api/stages');
+        const stageFilter = document.getElementById('stage-filter');
+        stages.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.key;
+            opt.textContent = s.label;
+            stageFilter.appendChild(opt);
+        });
+
+        async function reload() {
+            const q = document.getElementById('search-input').value;
+            const stage = stageFilter.value;
+            const sort = document.getElementById('sort-select').value;
+            const params = new URLSearchParams();
+            if (q) params.set('q', q);
+            if (stage) params.set('stage', stage);
+            if (sort) params.set('sort', sort);
+            const deals = await apiGet('/deals/api/deals?' + params.toString());
+
+            const tbody = document.getElementById('deals-tbody');
+            if (!deals || deals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No deals yet. Create your first one!</td></tr>';
+            } else {
+                tbody.innerHTML = deals.map(d => `
+                    <tr class="deal-row" data-id="${d.id}">
+                        <td><a href="/deals/${d.id}" class="link-strong">${escapeHtml(d.name)}</a></td>
+                        <td>${d.company ? `<a href="/companies/${d.company.id}" class="link">${escapeHtml(d.company.name)}</a>` : '<span class="text-muted">—</span>'}</td>
+                        <td>${d.contact ? escapeHtml(d.contact.full_name) : '<span class="text-muted">—</span>'}</td>
+                        <td class="numeric">${formatCurrency(d.value, d.currency)}</td>
+                        <td><span class="stage-pill" style="--pill-color:${d.stage_color}">${escapeHtml(d.stage_label)}</span></td>
+                        <td>${d.probability}%</td>
+                        <td>${formatDate(d.expected_close_date)}</td>
+                        <td class="row-actions">
+                            <a href="/deals/${d.id}/edit" class="btn btn-xs">Edit</a>
+                            <button class="btn btn-xs btn-danger" onclick="deleteDeal('${d.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            const stats = await apiGet('/deals/api/stats');
+            document.getElementById('deal-stats').innerHTML = `
+                <div class="stat-mini"><span class="stat-mini-label">Open</span><span class="stat-mini-value">${stats.open}</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">Won</span><span class="stat-mini-value">${stats.won}</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">Total Value</span><span class="stat-mini-value">${stats.value.toLocaleString(undefined, {maximumFractionDigits:0})}</span></div>
+                <div class="stat-mini"><span class="stat-mini-label">Weighted Forecast</span><span class="stat-mini-value">${stats.weighted_value.toLocaleString(undefined, {maximumFractionDigits:0})}</span></div>
+            `;
+        }
+
+        document.getElementById('search-input').addEventListener('input', debounce(reload, 250));
+        stageFilter.addEventListener('change', reload);
+        document.getElementById('sort-select').addEventListener('change', reload);
+
+        reload();
+    });
+
+    async function deleteDeal(id) {
+        if (!confirm('Delete this deal?')) return;
+        try {
+            await apiDelete('/deals/api/deals/' + id);
+            location.reload();
+        } catch (e) {
+            alert('Failed to delete: ' + e.message);
+        }
+    }
+
+    function formatCurrency(value, currency) {
+        if (value === null || value === undefined) return '—';
+        try {
+            return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(value);
+        } catch {
+            return currency + ' ' + Number(value).toLocaleString();
+        }
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '<span class="text-muted">—</span>';
+        const d = new Date(iso);
+        if (isNaN(d)) return escapeHtml(iso);
+        return d.toLocaleDateString();
+    }
+</script>
+{% endblock %}

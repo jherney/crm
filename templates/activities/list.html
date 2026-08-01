@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'activities' %}
+{% block title %}Activities - Modular CRM{% endblock %}
+{% block page_title %}Activities{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <input type="search" id="search-input" placeholder="Search activities..." class="search-input" />
+    <select id="type-filter" class="filter-select">
+        <option value="">All Types</option>
+    </select>
+    <select id="status-filter" class="filter-select">
+        <option value="open">Open</option>
+        <option value="overdue">Overdue</option>
+        <option value="completed">Completed</option>
+        <option value="">All</option>
+    </select>
+    <div class="filter-spacer"></div>
+    <a class="btn btn-primary" href="/activities/new">+ Log Activity</a>
+</div>
+
+<div class="activity-stats" id="activity-stats"></div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Subject</th>
+                <th>Deal</th>
+                <th>Contact</th>
+                <th>Due</th>
+                <th>Outcome</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="activities-tbody">
+            <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [types, stats] = await Promise.all([
+            apiGet('/activities/api/types'),
+            apiGet('/activities/api/stats'),
+        ]);
+        const tf = document.getElementById('type-filter');
+        types.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+            tf.appendChild(opt);
+        });
+
+        const typeIcons = {
+            call: '📞', email: '✉️', meeting: '🤝', task: '✅', note: '📝'
+        };
+
+        document.getElementById('activity-stats').innerHTML = `
+            <div class="stat-mini"><span class="stat-mini-label">Open</span><span class="stat-mini-value">${stats.open}</span></div>
+            <div class="stat-mini"><span class="stat-mini-label">Overdue</span><span class="stat-mini-value">${stats.overdue}</span></div>
+            <div class="stat-mini"><span class="stat-mini-label">Completed (24h)</span><span class="stat-mini-value">${stats.completed_last_24h}</span></div>
+            <div class="stat-mini"><span class="stat-mini-label">Total</span><span class="stat-mini-value">${stats.total}</span></div>
+        `;
+
+        async function reload() {
+            const q = document.getElementById('search-input').value;
+            const type = tf.value;
+            const status = document.getElementById('status-filter').value;
+            const params = new URLSearchParams();
+            if (q) params.set('q', q);
+            if (type) params.set('type', type);
+            if (status) params.set('status', status);
+            const rows = await apiGet('/activities/api/activities?' + params.toString());
+
+            const tbody = document.getElementById('activities-tbody');
+            if (!rows || rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="empty">No matching activities.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(a => {
+                const due = a.due_date ? formatDT(a.due_date) : '<span class="text-muted">—</span>';
+                const overdue = a.is_overdue ? 'overdue-pill' : '';
+                const icon = typeIcons[a.type] || '•';
+                const outcomeBadge = a.outcome ? `<span class="outcome-pill">${escapeHtml(a.outcome)}</span>` : '';
+                return `
+                    <tr class="${overdue}">
+                        <td><span class="type-icon">${icon}</span> ${escapeHtml(a.type)}</td>
+                        <td><strong>${escapeHtml(a.subject)}</strong></td>
+                        <td>${a.deal ? `<a href="/deals/${a.deal.id}">${escapeHtml(a.deal.name)}</a>` : '<span class="text-muted">—</span>'}</td>
+                        <td>${a.contact ? escapeHtml(a.contact.full_name) : '<span class="text-muted">—</span>'}</td>
+                        <td>${due}</td>
+                        <td>${outcomeBadge}</td>
+                        <td>${a.completed ? '<span class="badge-ok">✓ Done</span>' : '<span class="badge-open">Open</span>'}</td>
+                        <td class="row-actions">
+                            ${!a.completed ? `<button class="btn btn-xs" onclick="completeActivity('${a.id}')">Complete</button>` : ''}
+                            <a class="btn btn-xs" href="/activities/${a.id}/edit">Edit</a>
+                            <button class="btn btn-xs btn-danger" onclick="deleteActivity('${a.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('search-input').addEventListener('input', debounce(reload, 250));
+        tf.addEventListener('change', reload);
+        document.getElementById('status-filter').addEventListener('change', reload);
+
+        reload();
+    });
+
+    async function completeActivity(id) {
+        try {
+            await apiPost('/activities/api/activities/' + id + '/complete', {});
+            location.reload();
+        } catch (e) {
+            alert('Failed: ' + e.message);
+        }
+    }
+    async function deleteActivity(id) {
+        if (!confirm('Delete this activity?')) return;
+        try {
+            await apiDelete('/activities/api/activities/' + id);
+            location.reload();
+        } catch (e) {
+            alert('Failed: ' + e.message);
+        }
+    }
+    function formatDT(iso) {
+        const d = new Date(iso);
+        if (isNaN(d)) return escapeHtml(iso);
+        return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+</script>
+{% endblock %}

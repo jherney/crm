@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'contacts' %}
+{% block title %}Contacts - Modular CRM{% endblock %}
+{% block page_title %}Contacts{% endblock %}
+
+{% block content %}
+<div class="list-view">
+    <div class="toolbar">
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search contacts..." />
+        </div>
+        <div class="filters">
+            <select id="status-filter">
+                <option value="">All statuses</option>
+            </select>
+        </div>
+        <a class="btn btn-primary" href="/contacts/new">+ Add Contact</a>
+    </div>
+    <div id="contacts-list" class="card-grid">Loading contacts...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const statuses = await apiGet('/contacts/api/contacts/statuses');
+        const statusFilter = document.getElementById('status-filter');
+        statuses.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s[0].toUpperCase() + s.slice(1);
+            statusFilter.appendChild(opt);
+        });
+
+        async function loadContacts() {
+            const q = document.getElementById('search-input').value;
+            const status = statusFilter.value;
+            const params = new URLSearchParams();
+            if (q) params.append('q', q);
+            if (status) params.append('status', status);
+            const contacts = await apiGet('/contacts/api/contacts?' + params.toString());
+            const container = document.getElementById('contacts-list');
+            container.innerHTML = (contacts || []).map(c => `
+                <div class="card" data-id="${c.id}">
+                    <div class="card-title">
+                        <a href="/contacts/${c.id}">${escapeHtml(c.full_name)}</a>
+                    </div>
+                    <div class="card-meta">${escapeHtml(c.title || '')}</div>
+                    <div class="card-meta">${escapeHtml(c.email || '')} ${escapeHtml(c.phone || '')}</div>
+                    <div class="card-tags">${(c.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>
+                    <div class="card-actions">
+                        <a class="btn btn-small" href="/contacts/${c.id}/edit">Edit</a>
+                        <button class="btn btn-small btn-danger" onclick="deleteContact('${c.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('') || '<div class="empty">No contacts found.</div>';
+        }
+
+        window.deleteContact = async function(id) {
+            if (!confirm('Delete this contact?')) return;
+            await apiDelete('/contacts/api/contacts/' + id);
+            loadContacts();
+        };
+
+        document.getElementById('search-input').addEventListener('input', debounce(loadContacts, 250));
+        statusFilter.addEventListener('change', loadContacts);
+        loadContacts();
+    });
+</script>
+{% endblock %}

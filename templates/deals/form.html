@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'deals' %}
+{% set is_edit = deal is not none %}
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Deal - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'New' }} Deal{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form id="deal-form" class="entity-form">
+        <div class="form-grid">
+            <div class="form-group full-width">
+                <label>Deal Name *</label>
+                <input type="text" name="name" value="{{ deal.name if is_edit else '' }}" required placeholder="e.g. Acme Corp - Annual Subscription" />
+            </div>
+            <div class="form-group">
+                <label>Value</label>
+                <input type="number" name="value" step="0.01" min="0" value="{{ deal.value if is_edit else '0' }}" />
+            </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select name="currency">
+                    {% set current_currency = deal.currency if is_edit else 'USD' %}
+                    {% for c in ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY'] %}
+                    <option value="{{ c }}" {% if c == current_currency %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Stage</label>
+                <select name="stage" id="stage-select">
+                    {% set current_stage = deal.stage if is_edit else 'prospect' %}
+                    {% for s in [
+                        ('prospect', 'Prospect'),
+                        ('qualified', 'Qualified'),
+                        ('proposal', 'Proposal'),
+                        ('negotiation', 'Negotiation'),
+                        ('closed_won', 'Closed Won'),
+                        ('closed_lost', 'Closed Lost'),
+                    ] %}
+                    <option value="{{ s[0] }}" {% if s[0] == current_stage %}selected{% endif %}>{{ s[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Probability (%)</label>
+                <input type="number" name="probability" min="0" max="100" value="{{ deal.probability if is_edit else 10 }}" />
+            </div>
+            <div class="form-group">
+                <label>Expected Close Date</label>
+                <input type="date" name="expected_close_date" value="{{ deal.expected_close_date.isoformat() if is_edit and deal.expected_close_date else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Source</label>
+                <select name="source">
+                    {% set current_source = deal.source if is_edit and deal.source else '' %}
+                    <option value="">—</option>
+                    {% for s in ['Website', 'Referral', 'Cold outreach', 'Event', 'Partner', 'Inbound', 'Other'] %}
+                    <option value="{{ s }}" {% if s == current_source %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Owner</label>
+                <input type="text" name="owner" value="{{ deal.owner if is_edit and deal.owner else '' }}" placeholder="e.g. Alex Kim" />
+            </div>
+            <div class="form-group">
+                <label>Contact</label>
+                <select name="contact_id" id="contact-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Company</label>
+                <select name="company_id" id="company-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label>Tags (comma separated)</label>
+                <input type="text" name="tags" value="{{ deal.tags | join(', ') if is_edit and deal.tags else '' }}" />
+            </div>
+            <div class="form-group full-width">
+                <label>Description</label>
+                <textarea name="description" rows="4" placeholder="What's this deal about?">{{ deal.description if is_edit and deal.description else '' }}</textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" href="/deals/">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dealId = {{ (deal.id | tojson) if is_edit else 'null' }};
+    const currentContactId = {{ (deal.contact_id | tojson) if is_edit else 'null' }};
+    const currentCompanyId = {{ (deal.company_id | tojson) if is_edit else 'null' }};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [contacts, companies] = await Promise.all([
+            apiGet('/contacts/api/contacts'),
+            apiGet('/companies/api/companies'),
+        ]);
+
+        const contactSelect = document.getElementById('contact-select');
+        (contacts || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.full_name + (c.email ? ` (${c.email})` : '');
+            if (c.id === currentContactId) opt.selected = true;
+            contactSelect.appendChild(opt);
+        });
+
+        const companySelect = document.getElementById('company-select');
+        (companies || []).forEach(co => {
+            const opt = document.createElement('option');
+            opt.value = co.id;
+            opt.textContent = co.name;
+            if (co.id === currentCompanyId) opt.selected = true;
+            companySelect.appendChild(opt);
+        });
+
+        document.getElementById('deal-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+            const payload = {
+                name: form.name.value,
+                value: parseFloat(form.value.value || '0'),
+                currency: form.currency.value,
+                stage: form.stage.value,
+                probability: parseInt(form.probability.value || '0', 10),
+                expected_close_date: form.expected_close_date.value || null,
+                source: form.source.value || null,
+                owner: form.owner.value || null,
+                contact_id: form.contact_id.value || null,
+                company_id: form.company_id.value || null,
+                tags: tags,
+                description: form.description.value || null,
+            };
+            const url = dealId ? '/deals/api/deals/' + dealId : '/deals/api/deals';
+            const method = dealId ? 'PUT' : 'POST';
+            await apiCall(method, url, payload);
+            window.location.href = '/deals/' + (dealId || '');
+        });
+    });
+</script>
+{% endblock %}

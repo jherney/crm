@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'dashboard' %}
+{% block title %}Dashboard - Modular CRM{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<div class="dashboard">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Open Pipeline</div>
+            <div class="stat-value" id="stat-pipeline-value">-</div>
+            <div class="stat-sub" id="stat-pipeline-meta">- open deals</div>
+            <a class="stat-link" href="/deals/pipeline">View pipeline →</a>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Won Revenue</div>
+            <div class="stat-value" id="stat-won-value">-</div>
+            <div class="stat-sub" id="stat-won-meta">- deals won</div>
+            <a class="stat-link" href="/deals/?stage=closed_won">View won →</a>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Activities</div>
+            <div class="stat-value" id="stat-activities-value">-</div>
+            <div class="stat-sub" id="stat-activities-meta">- overdue</div>
+            <a class="stat-link" href="/activities/">View activities →</a>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Contacts</div>
+            <div class="stat-value" id="stat-contacts">-</div>
+            <a class="stat-link" href="/contacts/">View all →</a>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h2>Pipeline by Stage</h2>
+            <canvas id="chart-pipeline"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Revenue Forecast by Month</h2>
+            <canvas id="chart-forecast"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Win Rate Trend</h2>
+            <canvas id="chart-winrate"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Activities by Type (last 30 days)</h2>
+            <canvas id="chart-activities"></canvas>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Quick Actions</h2>
+        <div class="action-row">
+            <a class="btn btn-primary" href="/deals/new">+ New Deal</a>
+            <a class="btn btn-primary" href="/activities/new">+ Log Activity</a>
+            <a class="btn btn-primary" href="/contacts/new">+ Add Contact</a>
+            <a class="btn btn-primary" href="/companies/new">+ Add Company</a>
+            <a class="btn btn-secondary" href="/email-templates/new">+ Email Template</a>
+            <a class="btn btn-secondary" href="/automations/new">+ Automation</a>
+        </div>
+    </div>
+
+    <div class="recent-row">
+        <div class="recent-section">
+            <h2>🔜 Upcoming Activities</h2>
+            <div id="upcoming-activities" class="card-list">Loading...</div>
+        </div>
+
+        <div class="recent-section">
+            <h2>Recent Deals</h2>
+            <div id="recent-deals" class="card-list">Loading...</div>
+        </div>
+
+        <div class="recent-section">
+            <h2>Recent Contacts</h2>
+            <div id="recent-contacts" class="card-list">Loading...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+    Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [stats, forecast, winrate, byType] = await Promise.all([
+            apiGet('/dashboard/api/stats'),
+            apiGet('/dashboard/api/forecast'),
+            apiGet('/dashboard/api/winrate'),
+            apiGet('/dashboard/api/activity-by-type'),
+        ]);
+
+        // KPI cards
+        document.getElementById('stat-pipeline-value').textContent =
+            stats.pipeline.open_value.toLocaleString(undefined, {maximumFractionDigits: 0});
+        document.getElementById('stat-pipeline-meta').textContent =
+            `${stats.pipeline.open_count} open · ${stats.pipeline.weighted_value.toLocaleString(undefined, {maximumFractionDigits: 0})} weighted`;
+
+        document.getElementById('stat-won-value').textContent =
+            stats.pipeline.won_value.toLocaleString(undefined, {maximumFractionDigits: 0});
+        document.getElementById('stat-won-meta').textContent =
+            `${stats.pipeline.won_count} won`;
+
+        document.getElementById('stat-contacts').textContent = stats.contacts ?? 0;
+
+        const actsTotal = (stats.activities && stats.activities.total) || 0;
+        const actsOverdue = (stats.activities && stats.activities.overdue) || 0;
+        document.getElementById('stat-activities-value').textContent = actsTotal;
+        document.getElementById('stat-activities-meta').textContent =
+            `${actsOverdue} overdue · ${(stats.activities && stats.activities.open) || 0} open`;
+
+        // Pipeline by stage chart (stacked bar with weighted overlay)
+        renderPipelineChart(forecast.pipeline_by_stage);
+
+        // Revenue forecast by month
+        renderForecastChart(forecast.monthly);
+
+        // Win rate trend
+        renderWinRateChart(winrate);
+
+        // Activities by type
+        renderActivitiesChart(byType);
+
+        // Lists
+        renderList('recent-deals', (stats.recent_deals || []).map(d => `
+            <a class="card card-link" href="/deals/${d.id}">
+                <div class="card-title">${escapeHtml(d.name)}</div>
+                <div class="card-meta">${d.value.toLocaleString()} ${escapeHtml(d.currency)} · ${escapeHtml(d.stage)}</div>
+            </a>
+        `), 'No deals yet. <a href="/deals/new">Add the first one →</a>');
+
+        renderList('recent-contacts', (stats.recent_contacts || []).map(c => `
+            <a class="card card-link" href="/contacts/${c.id}">
+                <div class="card-title">${escapeHtml(c.full_name)}</div>
+                <div class="card-meta">${escapeHtml(c.email || '')} ${escapeHtml(c.status || '')}</div>
+            </a>
+        `), 'No contacts yet.');
+
+        renderList('upcoming-activities', (stats.upcoming_activities || []).map(a => `
+            <a class="card card-link" href="/activities/${a.id}/edit">
+                <div class="card-title">${escapeHtml(a.subject)}</div>
+                <div class="card-meta">
+                    ${a.completed ? '<span class="badge-ok">✓ Done</span>' : '<span class="badge-open">⏳</span>'}
+                    ${a.due_date ? ' due ' + new Date(a.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                    ${a.deal ? ' · <a href="/deals/' + a.deal.id + '" onclick="event.stopPropagation()">' + escapeHtml(a.deal.name) + '</a>' : ''}
+                </div>
+            </a>
+        `), 'No upcoming activities. <a href="/activities/new">Log one →</a>');
+    });
+
+    function renderList(id, html, empty) {
+        const el = document.getElementById(id);
+        el.innerHTML = html.length ? html.join('') : `<div class="empty">${empty}</div>`;
+    }
+
+    function renderPipelineChart(rows) {
+        const ctx = document.getElementById('chart-pipeline');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: rows.map(r => r.stage),
+                datasets: [
+                    { label: 'Pipeline value', data: rows.map(r => r.value),
+                      backgroundColor: 'rgba(56, 189, 248, 0.6)' },
+                    { label: 'Weighted forecast', data: rows.map(r => r.weighted_value),
+                      backgroundColor: 'rgba(46, 204, 113, 0.6)' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: false, grid: { color: 'rgba(255,255,255,0.04)' } },
+                    y: { stacked: false, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' },
+                         ticks: { callback: v => '$' + v.toLocaleString() } }
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    }
+
+    function renderForecastChart(rows) {
+        const ctx = document.getElementById('chart-forecast');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: rows.map(r => r.label),
+                datasets: [
+                    { label: 'Expected close value', data: rows.map(r => r.value),
+                      backgroundColor: 'rgba(242, 169, 59, 0.6)' },
+                    { label: 'Weighted forecast', data: rows.map(r => r.weighted_value),
+                      backgroundColor: 'rgba(233, 109, 109, 0.6)' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { stacked: false }, y: { stacked: false, beginAtZero: true,
+                        ticks: { callback: v => '$' + v.toLocaleString() } } },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    }
+
+    function renderWinRateChart(rows) {
+        const ctx = document.getElementById('chart-winrate');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: rows.map(r => r.label),
+                datasets: [
+                    { label: 'Won', data: rows.map(r => r.won),
+                      borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,.2)', tension: 0.3, fill: true },
+                    { label: 'Lost', data: rows.map(r => r.lost),
+                      borderColor: '#95a5a6', backgroundColor: 'rgba(149,165,166,.2)', tension: 0.3, fill: true }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    }
+
+    function renderActivitiesChart(rows) {
+        const ctx = document.getElementById('chart-activities');
+        const colors = {
+            call: 'rgba(56, 189, 248, 0.7)',
+            email: 'rgba(242, 169, 59, 0.7)',
+            meeting: 'rgba(46, 204, 113, 0.7)',
+            task: 'rgba(124, 124, 255, 0.7)',
+            note: 'rgba(149, 165, 166, 0.7)'
+        };
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: rows.map(r => r.type),
+                datasets: [{
+                    data: rows.map(r => r.count),
+                    backgroundColor: rows.map(r => colors[r.type] || '#38bdf8')
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'companies' %}
+{% block title %}Companies - Modular CRM{% endblock %}
+{% block page_title %}Companies{% endblock %}
+
+{% block content %}
+<div class="list-view">
+    <div class="toolbar">
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search companies..." />
+        </div>
+        <div class="filters">
+            <select id="status-filter">
+                <option value="">All statuses</option>
+            </select>
+        </div>
+        <a class="btn btn-primary" href="/companies/new">+ Add Company</a>
+    </div>
+    <div id="companies-list" class="card-grid">Loading companies...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const statuses = await apiGet('/companies/api/companies/statuses');
+        const statusFilter = document.getElementById('status-filter');
+        statuses.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s[0].toUpperCase() + s.slice(1);
+            statusFilter.appendChild(opt);
+        });
+
+        async function loadCompanies() {
+            const q = document.getElementById('search-input').value;
+            const status = statusFilter.value;
+            const params = new URLSearchParams();
+            if (q) params.append('q', q);
+            if (status) params.append('status', status);
+            const companies = await apiGet('/companies/api/companies?' + params.toString());
+            const container = document.getElementById('companies-list');
+            container.innerHTML = (companies || []).map(c => `
+                <div class="card" data-id="${c.id}">
+                    <div class="card-title">
+                        <a href="/companies/${c.id}">${escapeHtml(c.name)}</a>
+                    </div>
+                    <div class="card-meta">${escapeHtml(c.industry || '')}</div>
+                    <div class="card-meta">${escapeHtml(c.website || '')} ${escapeHtml(c.email || '')}</div>
+                    <div class="card-tags">${(c.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>
+                    <div class="card-actions">
+                        <a class="btn btn-small" href="/companies/${c.id}/edit">Edit</a>
+                        <button class="btn btn-small btn-danger" onclick="deleteCompany('${c.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('') || '<div class="empty">No companies found.</div>';
+        }
+
+        window.deleteCompany = async function(id) {
+            if (!confirm('Delete this company?')) return;
+            await apiDelete('/companies/api/companies/' + id);
+            loadCompanies();
+        };
+
+        document.getElementById('search-input').addEventListener('input', debounce(loadCompanies, 250));
+        statusFilter.addEventListener('change', loadCompanies);
+        loadCompanies();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'email_templates' %}
+{% set is_edit = template is not none %}
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Email Template - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'New' }} Email Template{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form id="tpl-form" class="entity-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Name *</label>
+                <input type="text" name="name" value="{{ template.name if is_edit else '' }}" required />
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <input type="text" name="category" value="{{ template.category if is_edit and template.category else 'general' }}" />
+            </div>
+            <div class="form-group full-width">
+                <label>Subject *</label>
+                <input type="text" name="subject" value="{{ template.subject if is_edit else '' }}" required />
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" {% if not is_edit or template.is_active %}checked{% endif %} />
+                    Active
+                </label>
+            </div>
+            <div class="form-group full-width">
+                <label>Body *</label>
+                <textarea name="body" rows="14" required>{{ template.body if is_edit else '' }}</textarea>
+                <small class="text-muted">Use merge fields like {{ '{{contact.first_name}}' }}, {{ '{{deal.name}}' }}, {{ '{{company.name}}' }}</small>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" href="/email-templates/">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="merge-fields-help" id="merge-fields-help"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const templateId = {{ (template.id | tojson) if is_edit else 'null' }};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const fields = await apiGet('/email-templates/api/merge-fields');
+        document.getElementById('merge-fields-help').innerHTML = `
+            <strong>Available merge fields:</strong>
+            ${fields.map(f => `<code>{{{{ ${f} }}}}</code>`).join(' ')}
+        `;
+
+        document.getElementById('tpl-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const payload = {
+                name: f.name.value,
+                category: f.category.value,
+                subject: f.subject.value,
+                body: f.body.value,
+                is_active: f.is_active.checked,
+            };
+            const url = templateId ? '/email-templates/api/templates/' + templateId : '/email-templates/api/templates';
+            const method = templateId ? 'PUT' : 'POST';
+            await apiCall(method, url, payload);
+            window.location.href = '/email-templates/' + (templateId || '');
+        });
+    });
+</script>
+{% endblock %}

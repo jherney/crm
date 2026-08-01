@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'automations' %}
+{% block title %}Automations - Modular CRM{% endblock %}
+{% block page_title %}Automations{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <div class="filter-spacer"></div>
+    <a class="btn btn-secondary" href="/automations/runs">📜 Run History</a>
+    <a class="btn btn-primary" href="/automations/new">+ New Rule</a>
+</div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Trigger</th>
+                <th>Actions</th>
+                <th>Enabled</th>
+                <th>Runs</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="rules-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [rules, trigs] = await Promise.all([
+            apiGet('/automations/api/rules'),
+            apiGet('/automations/api/triggers'),
+        ]);
+        const trigLabels = Object.fromEntries(trigs.map(t => [t.key, t.label]));
+        const tbody = document.getElementById('rules-tbody');
+        if (!rules.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">No rules yet. <a href="/automations/new">Create one →</a></td></tr>';
+            return;
+        }
+        tbody.innerHTML = rules.map(r => `
+            <tr>
+                <td><a href="/automations/${r.id}" class="link-strong">${escapeHtml(r.name)}</a></td>
+                <td><span class="trigger-pill">${escapeHtml(trigLabels[r.trigger] || r.trigger)}</span></td>
+                <td>${(r.actions || []).map(a => '<span class="action-pill">' + escapeHtml(a.type) + '</span>').join(' ')}</td>
+                <td>${r.is_enabled ? '<span class="badge-ok">On</span>' : '<span class="badge-open">Off</span>'}</td>
+                <td>${r.run_count || 0}</td>
+                <td class="row-actions">
+                    <button class="btn btn-xs" onclick="toggle('${r.id}')">${r.is_enabled ? 'Disable' : 'Enable'}</button>
+                    <a class="btn btn-xs" href="/automations/${r.id}/edit">Edit</a>
+                    <button class="btn btn-xs btn-danger" onclick="del('${r.id}')">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    });
+    async function toggle(id) { await apiPost('/automations/api/rules/' + id + '/toggle', {}); location.reload(); }
+    async function del(id) { if (!confirm('Delete this rule?')) return; await apiDelete('/automations/api/rules/' + id); location.reload(); }
+</script>
+{% endblock %}

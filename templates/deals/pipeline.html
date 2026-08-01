@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'deals' %}
+{% block title %}Pipeline - Modular CRM{% endblock %}
+{% block page_title %}Sales Pipeline{% endblock %}
+
+{% block content %}
+<div class="pipeline-toolbar">
+    <div class="pipeline-totals" id="pipeline-totals"></div>
+    <div class="pipeline-actions">
+        <a class="btn btn-secondary" href="/deals/">📋 List View</a>
+        <a class="btn btn-primary" href="/deals/new">+ New Deal</a>
+    </div>
+</div>
+
+<div class="kanban-board" id="kanban-board">
+    <div class="kanban-empty">Loading pipeline…</div>
+</div>
+
+<div class="pipeline-help">
+    Drag deals between columns to update their stage. Probability and close date are set automatically.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let DEAL_STAGES = [];
+    let draggedId = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await renderPipeline();
+    });
+
+    async function renderPipeline() {
+        const data = await apiGet('/deals/api/pipeline');
+        DEAL_STAGES = data.stages;
+
+        // Top totals bar — open pipeline total + weighted forecast
+        const t = data.grand_total;
+        document.getElementById('pipeline-totals').innerHTML = `
+            <span class="pipeline-stat"><strong>${t.count}</strong> open deals</span>
+            <span class="pipeline-stat"><strong>${t.value.toLocaleString(undefined, {maximumFractionDigits:0})}</strong> pipeline value</span>
+            <span class="pipeline-stat"><strong>${t.weighted_value.toLocaleString(undefined, {maximumFractionDigits:0})}</strong> weighted forecast</span>
+        `;
+
+        const board = document.getElementById('kanban-board');
+        const openStages = DEAL_STAGES.filter(s => !s.is_won && !s.is_lost);
+
+        let html = '';
+        for (const stage of openStages) {
+            const deals = data.deals_by_stage[stage.key] || [];
+            const totals = data.totals_by_stage[stage.key] || {count:0, value:0, weighted_value:0};
+            html += `
+                <div class="kanban-column" data-stage="${stage.key}">
+                    <div class="kanban-column-header" style="--col-color:${stage.color}">
+                        <div class="kanban-column-title">${escapeHtml(stage.label)}</div>
+                        <div class="kanban-column-meta">
+                            <span class="kanban-count">${totals.count}</span>
+                            <span class="kanban-value">${totals.value.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                        </div>
+                    </div>
+                    <div class="kanban-column-body" data-stage="${stage.key}"
+                         ondragover="kanbanAllowDrop(event)" ondragleave="kanbanLeave(event)" ondrop="kanbanDrop(event)">
+                        ${deals.length === 0 ? '<div class="kanban-empty-card">No deals</div>' : deals.map(d => dealCard(d)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Won and Lost as collapsed summary columns at the right
+        const won = DEAL_STAGES.find(s => s.is_won);
+        const lost = DEAL_STAGES.find(s => s.is_lost);
+        for (const stage of [won, lost]) {
+            const totals = data.totals_by_stage[stage.key] || {count:0, value:0};
+            html += `
+                <div class="kanban-column kanban-column-closed" data-stage="${stage.key}">
+                    <div class="kanban-column-header" style="--col-color:${stage.color}">
+                        <div class="kanban-column-title">${escapeHtml(stage.label)}</div>
+                        <div class="kanban-column-meta">
+                            <span class="kanban-count">${totals.count}</span>
+                            <span class="kanban-value">${totals.value.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        board.innerHTML = html;
+
+        document.querySelectorAll('.kanban-deal-card').forEach(card => {
+            card.setAttribute('draggable', 'true');
+            card.addEventListener('dragstart', kanbanDragStart);
+            card.addEventListener('dragend', kanbanDragEnd);
+        });
+    }
+
+    function dealCard(deal) {
+        const probBadge = deal.probability ? `<span class="deal-prob">${deal.probability}%</span>` : '';
+        const company = deal.company ? `<div class="deal-company">${escapeHtml(deal.company.name)}</div>` : '';
+        const contact = deal.contact ? `<div class="deal-contact">${escapeHtml(deal.contact.full_name)}</div>` : '';
+        const close = deal.expected_close_date ? `<div class="deal-date">📅 ${formatDate(deal.expected_close_date)}</div>` : '';
+        return `
+            <div class="kanban-deal-card" data-id="${deal.id}" onclick="window.location.href='/deals/${deal.id}'">
+                <div class="deal-card-header">
+                    <div class="deal-name">${escapeHtml(deal.name)}</div>
+                    ${probBadge}
+                </div>
+                ${company}
+                ${contact}
+                <div class="deal-card-footer">
+                    <div class="deal-value">${formatCurrencyLabel(deal.value)}</div>
+                    ${close}
+                </div>
+            </div>
+        `;
+    }
+
+    function kanbanDragStart(e) {
+        draggedId = e.currentTarget.dataset.id;
+        e.currentTarget.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', draggedId);
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function kanbanDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        draggedId = null;
+    }
+
+    function kanbanAllowDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('drag-over');
+    }
+
+    function kanbanLeave(e) {
+        e.currentTarget.classList.remove('drag-over');
+    }
+
+    async function kanbanDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain') || draggedId;
+        const stage = e.currentTarget.dataset.stage;
+        if (!id || !stage) return;
+        try {
+            await apiPost('/deals/api/deals/' + id + '/move', { stage });
+            await renderPipeline();
+        } catch (err) {
+            alert('Failed to move deal: ' + err.message);
+        }
+    }
+
+    function formatCurrencyLabel(value) {
+        if (value === null || value === undefined || value === 0) return '';
+        if (value >= 1000) return '$' + (value / 1000).toFixed(value % 1000 === 0 ? 0 : 1) + 'k';
+        return '$' + value.toLocaleString();
+    }
+
+    function formatDate(iso) {
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        return d.toLocaleDateString();
+    }
+</script>
+{% endblock %}

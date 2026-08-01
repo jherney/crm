@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'companies' %}
+{% set is_edit = company is not none %}
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Company - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'New' }} Company{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form id="company-form" class="entity-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Name *</label>
+                <input type="text" name="name" value="{{ company.name if is_edit else '' }}" required />
+            </div>
+            <div class="form-group">
+                <label>Industry</label>
+                <input type="text" name="industry" value="{{ company.industry if is_edit else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Website</label>
+                <input type="url" name="website" value="{{ company.website if is_edit else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ company.email if is_edit else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" name="phone" value="{{ company.phone if is_edit else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" id="status-select">
+                    <option value="prospect">Prospect</option>
+                    <option value="customer">Customer</option>
+                    <option value="partner">Partner</option>
+                    <option value="vendor">Vendor</option>
+                    <option value="competitor">Competitor</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label>Address</label>
+                <input type="text" name="address" value="{{ company.address if is_edit else '' }}" />
+            </div>
+            <div class="form-group full-width">
+                <label>Tags (comma separated)</label>
+                <input type="text" name="tags" id="tags-input" value="{{ company.tags | join(', ') if is_edit else '' }}" />
+            </div>
+            <div class="form-group full-width">
+                <label>Notes</label>
+                <textarea name="notes" rows="5">{{ company.notes if is_edit else '' }}</textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" href="/companies/">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const companyId = {{ (company.id | tojson) if is_edit else 'null' }};
+    const currentStatus = {{ (company.status | tojson) if is_edit else '"prospect"' }};
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('status-select').value = currentStatus;
+
+        document.getElementById('company-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+            const payload = {
+                name: form.name.value,
+                industry: form.industry.value,
+                website: form.website.value,
+                email: form.email.value,
+                phone: form.phone.value,
+                address: form.address.value,
+                status: form.status.value,
+                tags: tags,
+                notes: form.notes.value
+            };
+            const url = companyId ? '/companies/api/companies/' + companyId : '/companies/api/companies';
+            const method = companyId ? 'PUT' : 'POST';
+            await apiCall(method, url, payload);
+            window.location.href = '/companies/' + (companyId || '');
+        });
+    });
+</script>
+{% endblock %}

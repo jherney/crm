@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'deals' %}
+{% block title %}{{ deal.name }} - Modular CRM{% endblock %}
+{% block page_title %}{{ deal.name }}{% endblock %}
+
+{% block content %}
+<div class="entity-detail">
+    <div class="entity-header">
+        <div class="entity-title">
+            <h2>{{ deal.name }}</h2>
+            <span class="stage-pill stage-pill-lg" style="--pill-color:{{ deal.stage_color }}">{{ deal.stage_label }}</span>
+        </div>
+        <div class="entity-actions">
+            <a class="btn btn-secondary" href="/deals/{{ deal.id }}/edit">Edit</a>
+            <a class="btn btn-secondary" href="/deals/">Back to list</a>
+            <button class="btn btn-danger" onclick="deleteDeal('{{ deal.id }}')">Delete</button>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Value</h3>
+            <div class="detail-value">{{ "{:,.2f}".format(deal.value or 0) }} {{ deal.currency }}</div>
+            <div class="detail-meta">Weighted: {{ "{:,.2f}".format(deal.value * (deal.probability or 0) / 100) }} {{ deal.currency }} ({{ deal.probability }}%)</div>
+        </div>
+        <div class="detail-card">
+            <h3>Stage</h3>
+            <div class="detail-value"><span class="stage-pill" style="--pill-color:{{ deal.stage_color }}">{{ deal.stage_label }}</span></div>
+            <div class="detail-meta">Probability: {{ deal.probability }}%</div>
+        </div>
+        <div class="detail-card">
+            <h3>Expected Close</h3>
+            <div class="detail-value">{{ deal.expected_close_date.isoformat() if deal.expected_close_date else '—' }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Owner</h3>
+            <div class="detail-value">{{ deal.owner or '—' }}</div>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Company</h3>
+            {% if deal.company %}
+            <a href="/companies/{{ deal.company.id }}" class="link-strong">{{ deal.company.name }}</a>
+            {% else %}
+            <div class="text-muted">No company linked</div>
+            {% endif %}
+        </div>
+        <div class="detail-card">
+            <h3>Contact</h3>
+            {% if deal.contact %}
+            <a href="/contacts/{{ deal.contact.id }}" class="link-strong">{{ deal.contact.full_name() }}</a>
+            {% else %}
+            <div class="text-muted">No contact linked</div>
+            {% endif %}
+        </div>
+        <div class="detail-card">
+            <h3>Source</h3>
+            <div class="detail-value">{{ deal.source or '—' }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Closed At</h3>
+            <div class="detail-value">{{ deal.closed_at.isoformat() if deal.closed_at else '—' }}</div>
+        </div>
+    </div>
+
+    {% if deal.tags %}
+    <div class="detail-section">
+        <h3>Tags</h3>
+        <div class="tag-row">
+            {% for tag in deal.tags %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if deal.description %}
+    <div class="detail-section">
+        <h3>Description</h3>
+        <p>{{ deal.description }}</p>
+    </div>
+    {% endif %}
+
+    <div class="detail-section">
+        <h3>Activity</h3>
+        <p class="text-muted">Created {{ deal.created_at.strftime('%Y-%m-%d %H:%M') if deal.created_at else '—' }} · Updated {{ deal.updated_at.strftime('%Y-%m-%d %H:%M') if deal.updated_at else '—' }}</p>
+    </div>
+
+    <div class="detail-section">
+        <h3>Activity Timeline</h3>
+        <div id="deal-timeline" class="timeline">Loading...</div>
+        <div style="margin-top: 0.75rem;">
+            <a class="btn btn-secondary btn-xs" href="/activities/new">+ Log activity on this deal</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const typeIcons = { call: '📞', email: '✉️', meeting: '🤝', task: '✅', note: '📝' };
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const acts = await apiGet('/activities/api/activities?deal_id={{ deal.id }}');
+            const el = document.getElementById('deal-timeline');
+            if (!acts || !acts.length) { el.innerHTML = '<div class="empty">No activities logged yet for this deal.</div>'; return; }
+            el.innerHTML = acts.map(a => {
+                const icon = typeIcons[a.type] || '•';
+                const due = a.due_date ? new Date(a.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                const cls = a.is_overdue ? 'overdue' : (a.completed ? 'done' : 'open');
+                return `
+                    <div class="timeline-item ${cls}">
+                        <span class="timeline-icon">${icon}</span>
+                        <div class="timeline-body">
+                            <div class="timeline-title">${escapeHtml(a.subject)} ${a.completed ? '<span class="badge-ok">✓</span>' : '<span class="badge-open">⏳</span>'}</div>
+                            ${a.body ? `<div class="timeline-text">${escapeHtml(a.body).slice(0, 200)}</div>` : ''}
+                            <div class="timeline-meta">${escapeHtml(a.type)}${due ? ' · ' + due : ''}${a.outcome ? ' · <span class="outcome-pill">' + escapeHtml(a.outcome) + '</span>' : ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {
+            document.getElementById('deal-timeline').textContent = 'Failed to load activities.';
+        }
+    });
+
+    async function deleteDeal(id) {
+        if (!confirm('Delete this deal?')) return;
+        try {
+            await apiDelete('/deals/api/deals/' + id);
+            window.location.href = '/deals/';
+        } catch (e) {
+            alert('Failed to delete: ' + e.message);
+        }
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Modular CRM{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="brand-icon">◆</span>
+                <span class="brand-text">Modular CRM</span>
+            </div>
+            <nav class="nav">
+                <a class="nav-link {% if active_section == 'dashboard' %}active{% endif %}" href="/">
+                    <span class="nav-icon">▤</span> Dashboard
+                </a>
+                <a class="nav-link {% if active_section == 'deals' %}active{% endif %}" href="/deals/">
+                    <span class="nav-icon">💰</span> Deals
+                </a>
+                <a class="nav-link {% if active_section == 'activities' %}active{% endif %}" href="/activities/">
+                    <span class="nav-icon">⚡</span> Activities
+                </a>
+                <a class="nav-link {% if active_section == 'contacts' %}active{% endif %}" href="/contacts/">
+                    <span class="nav-icon">👤</span> Contacts
+                </a>
+                <a class="nav-link {% if active_section == 'companies' %}active{% endif %}" href="/companies/">
+                    <span class="nav-icon">🏢</span> Companies
+                </a>
+                <a class="nav-link {% if active_section == 'email_templates' %}active{% endif %}" href="/email-templates/">
+                    <span class="nav-icon">✉️</span> Templates
+                </a>
+                <a class="nav-link {% if active_section == 'automations' %}active{% endif %}" href="/automations/">
+                    <span class="nav-icon">🔁</span> Automations
+                </a>
+            </nav>
+            <div class="module-status">
+                <div class="module-title">Active Modules</div>
+                <div id="module-list" class="module-list">Loading...</div>
+            </div>
+        </aside>
+        <main class="main">
+            <header class="topbar">
+                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                <div class="topbar-actions">
+                    <button class="btn btn-secondary" id="theme-toggle">🌙</button>
+                </div>
+            </header>
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

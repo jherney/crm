@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'automations' %}
+{% block title %}Automation Run History - Modular CRM{% endblock %}
+{% block page_title %}Automation Run History{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <div class="filter-spacer"></div>
+    <a class="btn btn-secondary" href="/automations/">← Back to rules</a>
+</div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Event</th>
+                <th>Rule</th>
+                <th>Status</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody id="runs-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const runs = await apiGet('/automations/api/runs?limit=200');
+        const tbody = document.getElementById('runs-tbody');
+        if (!runs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No automation runs yet.</td></tr>'; return; }
+        tbody.innerHTML = runs.map(r => `
+            <tr>
+                <td>${new Date(r.ran_at).toLocaleString()}</td>
+                <td><span class="trigger-pill">${escapeHtml(r.event)}</span></td>
+                <td>${r.rule_id ? `<a href="/automations/${r.rule_id}">View rule</a>` : '<span class="text-muted">deleted</span>'}</td>
+                <td>${r.status === 'success' ? '<span class="badge-ok">success</span>' : r.status === 'skipped' ? '<span class="badge-open">skipped</span>' : '<span class="badge-error">error</span>'}</td>
+                <td>${escapeHtml(r.message || '')}</td>
+            </tr>
+        `).join('');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'email_templates' %}
+{% block title %}{{ template.name }} - Email Template{% endblock %}
+{% block page_title %}{{ template.name }}{% endblock %}
+
+{% block content %}
+<div class="entity-detail">
+    <div class="entity-header">
+        <div class="entity-title">
+            <h2>{{ template.name }}</h2>
+            <span class="badge-ok" style="padding:.25rem .6rem;border-radius:999px;">{{ template.category }}</span>
+        </div>
+        <div class="entity-actions">
+            <a class="btn btn-secondary" href="/email-templates/{{ template.id }}/edit">Edit</a>
+            <a class="btn btn-secondary" href="/email-templates/">Back</a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Subject</h3>
+            <div class="detail-value">{{ template.subject }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Uses</h3>
+            <div class="detail-value">{{ template.use_count or 0 }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Active</h3>
+            <div class="detail-value">{{ 'Yes' if template.is_active else 'No' }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Created</h3>
+            <div class="detail-value">{{ template.created_at.strftime('%Y-%m-%d') if template.created_at else '—' }}</div>
+        </div>
+    </div>
+
+    <div class="detail-section">
+        <h3>Body</h3>
+        <pre style="white-space: pre-wrap; font-family: ui-monospace, 'SF Mono', monospace; font-size: 0.85rem; background: var(--surface-2); padding: 1rem; border-radius: 0.5rem;">{{ template.body }}</pre>
+    </div>
+
+    <div class="detail-section">
+        <h3>Send Preview</h3>
+        <div class="form-grid" style="max-width: 700px;">
+            <div class="form-group">
+                <label>From</label>
+                <input type="text" id="from-name" value="Sales Team" />
+            </div>
+            <div class="form-group">
+                <label>Deal (optional)</label>
+                <select id="deal-select"><option value="">None</option></select>
+            </div>
+            <div class="form-group">
+                <label>Contact (optional)</label>
+                <select id="contact-select"><option value="">None</option></select>
+            </div>
+            <div class="form-group">
+                <label>Company (optional)</label>
+                <select id="company-select"><option value="">None</option></select>
+            </div>
+        </div>
+        <div style="display:flex; gap:.5rem; margin-top: .75rem;">
+            <button type="button" class="btn btn-secondary" onclick="previewTpl()">Preview</button>
+            <button type="button" class="btn btn-primary" onclick="sendTpl()">Send (log activity)</button>
+        </div>
+        <div id="preview-area" class="preview-area" style="display:none;"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [deals, contacts, companies] = await Promise.all([
+            apiGet('/deals/api/deals'),
+            apiGet('/contacts/api/contacts'),
+            apiGet('/companies/api/companies'),
+        ]);
+        const ds = document.getElementById('deal-select'),
+              cs = document.getElementById('contact-select'),
+              cos = document.getElementById('company-select');
+        (deals || []).forEach(d => {
+            const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; ds.appendChild(o);
+        });
+        (contacts || []).forEach(c => {
+            const o = document.createElement('option'); o.value = c.id; o.textContent = c.full_name; cs.appendChild(o);
+        });
+        (companies || []).forEach(co => {
+            const o = document.createElement('option'); o.value = co.id; o.textContent = co.name; cos.appendChild(o);
+        });
+    });
+
+    function ctxFromUi() {
+        return {
+            user: { name: document.getElementById('from-name').value || 'Me' },
+            deal_id: document.getElementById('deal-select').value || null,
+            contact_id: document.getElementById('contact-select').value || null,
+            company_id: document.getElementById('company-select').value || null,
+        };
+    }
+
+    async function previewTpl() {
+        const data = await apiPost('/email-templates/api/templates/{{ template.id }}/preview', ctxFromUi());
+        const area = document.getElementById('preview-area');
+        area.style.display = '';
+        area.innerHTML = `
+            <div class="preview-subject"><strong>Subject:</strong> ${escapeHtml(data.subject)}</div>
+            <div class="preview-body">${escapeHtml(data.body)}</div>
+        `;
+    }
+
+    async function sendTpl() {
+        const data = await apiPost('/email-templates/api/templates/{{ template.id }}/use', ctxFromUi());
+        alert('Email logged as activity #' + data.activity_id + '. (Real SMTP can be wired in later.)');
+    }
+</script>
+
+{% endblock %}

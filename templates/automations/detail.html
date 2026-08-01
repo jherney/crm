@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'automations' %}
+{% block title %}{{ rule.name }} - Automation{% endblock %}
+{% block page_title %}{{ rule.name }}{% endblock %}
+
+{% block content %}
+<div class="entity-detail">
+    <div class="entity-header">
+        <div class="entity-title">
+            <h2>{{ rule.name }}</h2>
+            {% if rule.is_enabled %}<span class="badge-ok">On</span>{% else %}<span class="badge-open">Off</span>{% endif %}
+        </div>
+        <div class="entity-actions">
+            <a class="btn btn-secondary" href="/automations/{{ rule.id }}/edit">Edit</a>
+            <a class="btn btn-secondary" href="/automations/">Back</a>
+        </div>
+    </div>
+
+    {% if rule.description %}
+    <div class="detail-section"><p>{{ rule.description }}</p></div>
+    {% endif %}
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Trigger</h3>
+            <div class="detail-value"><span class="trigger-pill">{{ rule.trigger }}</span></div>
+            {% if rule.trigger_param %}<div class="detail-meta">{{ rule.trigger_param }}</div>{% endif %}
+        </div>
+        <div class="detail-card">
+            <h3>Conditions</h3>
+            <div class="detail-value"><code>{{ rule.conditions | tojson }}</code></div>
+        </div>
+        <div class="detail-card">
+            <h3>Runs (all-time)</h3>
+            <div class="detail-value">{{ rule.run_count or 0 }}</div>
+        </div>
+        <div class="detail-card">
+            <h3>Status</h3>
+            <div class="detail-value">{{ 'Enabled' if rule.is_enabled else 'Disabled' }}</div>
+        </div>
+    </div>
+
+    <div class="detail-section">
+        <h3>Actions (in order)</h3>
+        <ol>
+            {% for a in rule.actions or [] %}
+            <li>
+                <strong>{{ a.type }}</strong>
+                {% if a.subject %}<span>— {{ a.subject }}</span>{% endif %}
+                {% if a.due_in_days %}<span> · due in {{ a.due_in_days }} days</span>{% endif %}
+                {% if a.field %}<span> · {{ a.field }} = {{ a.value }}</span>{% endif %}
+                {% if a.message %}<span> · {{ a.message }}</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+
+    <div class="detail-section">
+        <h3>Recent runs</h3>
+        <div id="recent-runs" class="card-list">Loading…</div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const runs = await apiGet('/automations/api/runs?limit=20');
+        const filtered = (runs || []).filter(r => r.rule_id === '{{ rule.id }}');
+        const el = document.getElementById('recent-runs');
+        if (!filtered.length) { el.innerHTML = '<div class="empty">No runs yet.</div>'; return; }
+        el.innerHTML = filtered.slice(0, 10).map(r => `
+            <div class="card">
+                <div class="card-title"><span class="${r.status === 'success' ? 'badge-ok' : r.status === 'skipped' ? 'badge-open' : 'badge-error'}">${escapeHtml(r.status)}</span> ${escapeHtml(r.event)}</div>
+                <div class="card-meta">${escapeHtml(r.message || '')}</div>
+                <div class="card-meta text-muted">${new Date(r.ran_at).toLocaleString()}</div>
+            </div>
+        `).join('');
+    });
+</script>
+
+{% endblock %}

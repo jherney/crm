@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'automations' %}
+{% set is_edit = rule is not none %}
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Automation - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'New' }} Automation{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form id="rule-form" class="entity-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Name *</label>
+                <input type="text" name="name" value="{{ rule.name if is_edit else '' }}" required placeholder="e.g. Auto follow-up on Proposal" />
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_enabled" {% if not is_edit or rule.is_enabled %}checked{% endif %} />
+                    Enabled
+                </label>
+            </div>
+            <div class="form-group full-width">
+                <label>Description</label>
+                <input type="text" name="description" value="{{ rule.description if is_edit and rule.description else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Trigger *</label>
+                <select name="trigger" id="trigger-select" required>{{ '' }}</select>
+            </div>
+            <div class="form-group">
+                <label>Conditions (JSON)</label>
+                <textarea name="conditions" rows="3" placeholder='e.g. [{"field":"deal.value","op":"gt","value":10000}]'>{% if is_edit and rule.conditions %}{{ rule.conditions | tojson }}{% endif %}</textarea>
+                <small class="text-muted">field=deal.value, op=equals|not_equals|gt|lt|in, value=any</small>
+            </div>
+        </div>
+
+        <h3 style="margin-top: 1.5rem;">Actions</h3>
+        <div id="actions-list"></div>
+        <button type="button" class="btn btn-secondary" onclick="addAction()">+ Add action</button>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" href="/automations/">Cancel</a>
+            <button type="button" class="btn btn-secondary" onclick="testRule()">▶ Test</button>
+        </div>
+    </form>
+</div>
+
+<div id="test-output" style="display:none; margin-top: 1rem;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ruleId = {{ (rule.id | tojson) if is_edit else 'null' }};
+    let actionSpecs = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [triggers, actions] = await Promise.all([
+            apiGet('/automations/api/triggers'),
+            apiGet('/automations/api/actions'),
+        ]);
+        const sel = document.getElementById('trigger-select');
+        triggers.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.key;
+            opt.textContent = t.label;
+            sel.appendChild(opt);
+        });
+        window._triggers = triggers;
+        window._actions = actions;
+        sel.value = {{ (rule.trigger | tojson) if is_edit else '"deal_stage_changed"' }};
+
+        // Pre-seed actions from existing rule
+        const existing = {% if is_edit and rule.actions %}{{ rule.actions | tojson }}{% else %}[]{% endif %};
+        if (existing.length === 0) {
+            addAction();
+        } else {
+            existing.forEach(a => addAction(a));
+        }
+    });
+
+    function addAction(action) {
+        const idx = actionSpecs.length;
+        actionSpecs.push(action || { type: 'create_activity' });
+        renderActions();
+    }
+    function removeAction(idx) {
+        actionSpecs.splice(idx, 1);
+        renderActions();
+    }
+    function renderActions() {
+        const html = actionSpecs.map((a, i) => `
+            <div class="action-card">
+                <div class="action-card-head">
+                    <span>Action ${i + 1}</span>
+                    <button type="button" class="btn btn-xs btn-danger" onclick="removeAction(${i})">Remove</button>
+                </div>
+                <div class="action-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Type</label>
+                            <select data-idx="${i}" data-field="type" onchange="updateAction(${i}, 'type', this.value)">
+                                ${(window._actions || []).map(opt => `<option value="${opt.key}" ${opt.key === a.type ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                            </select>
+                        </div>
+                        ${a.type === 'create_activity' ? `
+                            <div class="form-group"><label>Activity type</label>
+                                <select data-idx="${i}" onchange="updateAction(${i}, 'activity_type', this.value)">
+                                    ${['task','call','email','meeting','note'].map(v => `<option value="${v}" ${v === (a.activity_type||'task') ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Due in (days)</label>
+                                <input type="number" value="${a.due_in_days || ''}" onchange="updateAction(${i}, 'due_in_days', this.value ? parseInt(this.value,10) : null)" />
+                            </div>
+                            <div class="form-group full-width"><label>Subject</label>
+                                <input type="text" value="${escapeAttr(a.subject || '')}" onchange="updateAction(${i}, 'subject', this.value)" />
+                            </div>
+                            <div class="form-group full-width"><label>Body / notes</label>
+                                <textarea rows="2" onchange="updateAction(${i}, 'body', this.value)">${escapeAttr(a.body || '')}</textarea>
+                            </div>
+                        ` : ''}
+                        ${a.type === 'update_field' ? `
+                            <div class="form-group"><label>Field</label>
+                                <select onchange="updateAction(${i}, 'field', this.value)">
+                                    ${['stage','probability','value','source','owner'].map(v => `<option value="${v}" ${v === a.field ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Value</label>
+                                <input type="text" value="${escapeAttr(a.value ?? '')}" onchange="updateAction(${i}, 'value', this.value)" />
+                            </div>
+                        ` : ''}
+                        ${a.type === 'send_email' ? `
+                            <div class="form-group full-width"><label>Subject (literal)</label>
+                                <input type="text" value="${escapeAttr(a.subject || '')}" onchange="updateAction(${i}, 'subject', this.value)" placeholder="Or use template_id below" />
+                            </div>
+                            <div class="form-group full-width"><label>Body (literal)</label>
+                                <textarea rows="3" onchange="updateAction(${i}, 'body', this.value)"></textarea>
+                            </div>
+                        ` : ''}
+                        ${a.type === 'log' ? `
+                            <div class="form-group full-width"><label>Message</label>
+                                <input type="text" value="${escapeAttr(a.message || '')}" onchange="updateAction(${i}, 'message', this.value)" />
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('actions-list').innerHTML = html;
+    }
+
+    function updateAction(i, key, val) {
+        actionSpecs[i][key] = val;
+        renderActions(); // re-render to swap form region
+    }
+
+    function escapeAttr(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    }
+
+    document.getElementById('rule-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        let conds = [];
+        try { conds = f.conditions.value ? JSON.parse(f.conditions.value) : []; } catch { alert('Invalid conditions JSON'); return; }
+        const payload = {
+            name: f.name.value,
+            description: f.description.value || null,
+            trigger: f.trigger.value,
+            conditions: conds,
+            actions: actionSpecs,
+            is_enabled: f.is_enabled.checked,
+        };
+        const url = ruleId ? '/automations/api/rules/' + ruleId : '/automations/api/rules';
+        const method = ruleId ? 'PUT' : 'POST';
+        const data = await apiCall(method, url, payload);
+        window.location.href = '/automations/' + data.id;
+    });
+
+    async function testRule() {
+        const out = document.getElementById('test-output');
+        out.style.display = 'block';
+        out.textContent = 'Running test...';
+        const data = await apiPost('/automations/api/test', {
+            event: document.getElementById('trigger-select').value,
+            payload: { deal: null, activity: null },
+        });
+        out.innerHTML = '<strong>Test runs:</strong><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+    }
+</script>
+{% endblock %}

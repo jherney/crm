@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'activities' %}
+{% set is_edit = activity is not none %}
+{% block title %}{{ 'Edit' if is_edit else 'Log' }} Activity - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if is_edit else 'Log' }} Activity{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form id="activity-form" class="entity-form">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Type *</label>
+                <select name="type" id="type-select" required>
+                    {% set cur_type = activity.type if is_edit else 'task' %}
+                    {% for t in [('call','📞 Call'), ('email','✉️ Email'), ('meeting','🤝 Meeting'), ('task','✅ Task'), ('note','📝 Note')] %}
+                    <option value="{{ t[0] }}" {% if t[0] == cur_type %}selected{% endif %}>{{ t[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Owner</label>
+                <input type="text" name="owner" value="{{ activity.owner if is_edit and activity.owner else '' }}" />
+            </div>
+            <div class="form-group full-width">
+                <label>Subject *</label>
+                <input type="text" name="subject" value="{{ activity.subject if is_edit else '' }}" required placeholder="e.g. Discovery call with Bob" />
+            </div>
+            <div class="form-group">
+                <label>Due Date</label>
+                <input type="datetime-local" name="due_date" value="{{ activity.due_date.strftime('%Y-%m-%dT%H:%M') if is_edit and activity.due_date else '' }}" />
+            </div>
+            <div class="form-group">
+                <label>Outcome</label>
+                <select name="outcome" id="outcome-select">
+                    {% set cur_outcome = activity.outcome if is_edit and activity.outcome else '' %}
+                    {% for o in ['', 'completed', 'no_answer', 'left_voicemail', 'connected',
+                                 'replied', 'meeting_booked', 'bounced', 'opened', 'clicked',
+                                 'converted', 'forwarded', 'cancelled'] %}
+                    <option value="{{ o }}" {% if o == cur_outcome %}selected{% endif %}>{{ o if o else '— none —' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Deal</label>
+                <select name="deal_id" id="deal-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Contact</label>
+                <select name="contact_id" id="contact-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Company</label>
+                <select name="company_id" id="company-select">
+                    <option value="">None</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label>Notes</label>
+                <textarea name="body" rows="4">{{ activity.body if is_edit and activity.body else '' }}</textarea>
+            </div>
+            {% if is_edit %}
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="completed" {% if activity.completed %}checked{% endif %} />
+                    Mark as completed
+                </label>
+            </div>
+            {% endif %}
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a class="btn btn-secondary" href="/activities/">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const activityId = {{ (activity.id | tojson) if is_edit else 'null' }};
+    const currentDealId = {{ (activity.deal_id | tojson) if is_edit else 'null' }};
+    const currentContactId = {{ (activity.contact_id | tojson) if is_edit else 'null' }};
+    const currentCompanyId = {{ (activity.company_id | tojson) if is_edit else 'null' }};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const [deals, contacts, companies] = await Promise.all([
+            apiGet('/deals/api/deals'),
+            apiGet('/contacts/api/contacts'),
+            apiGet('/companies/api/companies'),
+        ]);
+
+        const ds = document.getElementById('deal-select');
+        (deals || []).forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.name;
+            if (d.id === currentDealId) opt.selected = true;
+            ds.appendChild(opt);
+        });
+
+        const cs = document.getElementById('contact-select');
+        (contacts || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.full_name + (c.email ? ` (${c.email})` : '');
+            if (c.id === currentContactId) opt.selected = true;
+            cs.appendChild(opt);
+        });
+
+        const cos = document.getElementById('company-select');
+        (companies || []).forEach(co => {
+            const opt = document.createElement('option');
+            opt.value = co.id;
+            opt.textContent = co.name;
+            if (co.id === currentCompanyId) opt.selected = true;
+            cos.appendChild(opt);
+        });
+
+        document.getElementById('activity-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const payload = {
+                type: f.type.value,
+                subject: f.subject.value,
+                body: f.body.value || null,
+                due_date: f.due_date.value || null,
+                outcome: f.outcome.value || '',
+                owner: f.owner.value || null,
+                deal_id: f.deal_id.value || null,
+                contact_id: f.contact_id.value || null,
+                company_id: f.company_id.value || null,
+            };
+            if (activityId) {
+                payload.completed = f.completed ? f.completed.checked : false;
+            }
+            const url = activityId ? '/activities/api/activities/' + activityId : '/activities/api/activities';
+            const method = activityId ? 'PUT' : 'POST';
+            await apiCall(method, url, payload);
+            window.location.href = '/activities/';
+        });
+    });
+</script>
+{% endblock %}
