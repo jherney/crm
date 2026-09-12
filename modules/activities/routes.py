@@ -53,16 +53,13 @@ def list_activities():
         query = query.filter(Activity.contact_id == contact_id)
     if company_id:
         query = query.filter(Activity.company_id == company_id)
-    if 'status' in data:
-        status = data['status']
+    if status:
         if status == 'open':
             query = query.filter(Activity.completed == False)
         elif status == 'completed':
             query = query.filter(Activity.completed == True)
         elif status == 'overdue':
             query = query.filter(Activity.completed == False)
-            # SQLite: Activity.due_date < datetime text comparison
-            # Postgres: same comparison works against DateTime column
             query = query.filter(Activity.due_date < datetime.now(timezone.utc))
 
     sort_map = {

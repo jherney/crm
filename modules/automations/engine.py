@@ -172,7 +172,10 @@ def _resolve_field(field, payload):
         elif isinstance(cur, dict):
             cur = cur.get(part)
         else:
-            return None
+            if isinstance(payload, dict) and part in payload:
+                cur = payload[part]
+            else:
+                return None
     if callable(cur):
         try:
             cur = cur()
