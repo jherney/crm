@@ -1,0 +1,9 @@
+# Core FastAPI and web framework dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.3
+
+# Additional performance and development dependencies
+httptools>=0.6.3
+watchfiles>=0.20

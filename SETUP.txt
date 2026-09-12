@@ -1,0 +1,18 @@
+1. Run:
+   bash part1-backend.sh
+   bash part2-frontend.sh
+   bash part3-run.sh
+
+2. Start backend:
+   cd futuristic-contact-manager/backend
+   npm install
+   npm run dev
+
+3. Start frontend in another terminal:
+   cd futuristic-contact-manager/frontend
+   npm install
+   npm run dev
+
+4. Optional:
+   cd futuristic-contact-manager
+   ./run-all.sh
