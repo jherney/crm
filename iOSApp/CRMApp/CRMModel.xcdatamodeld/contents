@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="21755" systemVersion="22F66" minimumToolsVersion="17.0" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="Contact" representedClassName="Contact" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="firstName" attributeType="String" optional="NO" syncable="YES">
+            <validationPredicates>
+                <string>SELF.length > 0</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>First name is required</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="lastName" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="email" attributeType="String" optional="YES" syncable="YES">
+            <validationPredicates>
+                <string>SELF MATCHES "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Invalid email format</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="phone" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="title" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="status" attributeType="String" optional="YES" syncable="YES">
+            <defaultValueString>"lead"</defaultValueString>
+        </attribute>
+        <attribute name="notes" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="tags" attributeType="Transformable" optional="YES" syncable="YES">
+            <customClassName>NSArray</customClassName>
+            <defaultValueString>[]</defaultValueString>
+        </attribute>
+        <relationship name="company" destinationEntity="Company" inverseName="contacts" inverseEntity="Company" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+    </entity>
+    <entity name="Company" representedClassName="Company" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="name" attributeType="String" optional="NO" syncable="YES">
+            <validationPredicates>
+                <string>SELF.length > 0</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Company name is required</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="email" attributeType="String" optional="YES" syncable="YES">
+            <validationPredicates>
+                <string>SELF MATCHES "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Invalid email format</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="phone" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="address" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="website" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="notes" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <relationship name="contacts" destinationEntity="Contact" inverseName="company" inverseEntity="Contact" minCount="0" maxCount="0" deletionRule="Nullify" type="To Many"/>
+    </entity>
+    <entity name="Activity" representedClassName="Activity" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="type" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="title" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="details" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <relationship name="contact" destinationEntity="Contact" inverseEntity="Contact" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="company" destinationEntity="Company" inverseEntity="Company" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="deal" destinationEntity="Deal" inverseEntity="Deal" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+    </entity>
+    <entity name="Deal" representedClassName="Deal" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="name" attributeType="String" optional="NO" syncable="YES">
+            <validationPredicates>
+                <string>SELF.length > 0</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Deal name is required</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="value" attributeType="Double" optional="NO" syncable="YES">
+            <defaultValueString>0</defaultValueString>
+        </attribute>
+        <attribute name="stage" attributeType="String" optional="YES" syncable="YES">
+            <defaultValueString>"Lead"</defaultValueString>
+        </attribute>
+        <attribute name="probability" attributeType="Integer 16" optional="NO" syncable="YES">
+            <defaultValueString>0</defaultValueString>
+        </attribute>
+        <attribute name="expectedCloseDate" attributeType="Date" optional="YES" syncable="YES"/>
+        <attribute name="notes" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <relationship name="contact" destinationEntity="Contact" inverseEntity="Contact" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="company" destinationEntity="Company" inverseEntity="Company" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="activities" destinationEntity="Activity" inverseName="deal" inverseEntity="Activity" minCount="0" maxCount="0" deletionRule="Nullify" type="To Many"/>
+    </entity>
+    <entity name="CRMTask" representedClassName="CRMTask" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="title" attributeType="String" optional="NO" syncable="YES">
+            <validationPredicates>
+                <string>SELF.length > 0</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Task title is required</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="details" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="status" attributeType="String" optional="YES" syncable="YES">
+            <defaultValueString>"Pending"</defaultValueString>
+        </attribute>
+        <attribute name="dueDate" attributeType="Date" optional="YES" syncable="YES"/>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <relationship name="contact" destinationEntity="Contact" inverseEntity="Contact" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="company" destinationEntity="Company" inverseEntity="Company" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+        <relationship name="deal" destinationEntity="Deal" inverseEntity="Deal" minCount="0" maxCount="1" deletionRule="Nullify" type="To One"/>
+    </entity>
+    <entity name="EmailTemplate" representedClassName="EmailTemplate" syncable="YES">
+        <attribute name="id" attributeType="UUID" optional="NO" syncable="YES" indexType="0">
+            <defaultValueString>UUID()</defaultValueString>
+        </attribute>
+        <attribute name="name" attributeType="String" optional="NO" syncable="YES">
+            <validationPredicates>
+                <string>SELF.length > 0</string>
+            </validationPredicates>
+            <validationWarnings>
+                <string>Template name is required</string>
+            </validationWarnings>
+        </attribute>
+        <attribute name="subject" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="body" attributeType="String" optional="YES" syncable="YES"/>
+        <attribute name="category" attributeType="String" optional="YES" syncable="YES">
+            <defaultValueString>"General"</defaultValueString>
+        </attribute>
+        <attribute name="createdAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+        <attribute name="updatedAt" attributeType="Date" optional="NO" syncable="YES">
+            <defaultValueString>now()</defaultValueString>
+        </attribute>
+    </entity>
+    <elements>
+        <element name="Contact" type="entity" positionX="128" positionY="128"/>
+        <element name="Company" type="entity" positionX="448" positionY="128"/>
+        <element name="Activity" type="entity" positionX="288" positionY="320"/>
+        <element name="Deal" type="entity" positionX="128" positionY="320"/>
+        <element name="CRMTask" type="entity" type="entity" positionX="448" positionY="320"/>
+        <element name="EmailTemplate" type="entity" positionX="288" positionY="480"/>
+    </elements>
+</model>
