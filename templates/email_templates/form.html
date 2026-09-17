@@ -45,13 +45,13 @@
 
 {% block scripts %}
 <script>
-    const templateId = {{ (template.id | tojson) if is_edit else 'null' }};
+    const templateId = {{ (template.id | tojson) if is_edit else (none | tojson) }};
 
     document.addEventListener('DOMContentLoaded', async () => {
         const fields = await apiGet('/email-templates/api/merge-fields');
         document.getElementById('merge-fields-help').innerHTML = `
             <strong>Available merge fields:</strong>
-            ${fields.map(f => `<code>{{{{ ${f} }}}}</code>`).join(' ')}
+            ${fields.map(f => \`<code>{{ '{' }}{{ '{' }} ${f}{{ '}' }}{{ '}' }}</code>\`).join(' ')}
         `;
 
         document.getElementById('tpl-form').addEventListener('submit', async (e) => {

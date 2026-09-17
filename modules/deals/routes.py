@@ -101,11 +101,7 @@ def create_deal():
     )
     db.session.add(deal)
     db.session.commit()
-    try:
-        from modules.automations.engine import fire
-        fire('deal_created', {'deal': deal})
-    except Exception:
-        pass
+    _fire_automation('deal_created', {'deal': deal})
     return jsonify(deal.to_dict()), 201
 
 
@@ -119,6 +115,8 @@ def get_deal(id):
 def update_deal(id):
     deal = Deal.query.get_or_404(id)
     data = request.get_json() or {}
+    old_stage = deal.stage
+    old_value = deal.value
     fields = ['name', 'value', 'currency', 'stage', 'probability',
               'expected_close_date', 'closed_at', 'source',
               'description', 'tags', 'owner', 'contact_id', 'company_id']
@@ -145,6 +143,18 @@ def update_deal(id):
             deal.closed_at = date.today()
 
     db.session.commit()
+    if deal.stage != old_stage:
+        _fire_automation('deal_stage_changed', {
+            'deal': deal,
+            'old_stage': old_stage,
+            'new_stage': deal.stage,
+        })
+    if deal.value != old_value:
+        _fire_automation('deal_value_changed', {
+            'deal': deal,
+            'old_value': old_value,
+            'new_value': deal.value,
+        })
     return jsonify(deal.to_dict())
 
 
@@ -179,12 +189,9 @@ def move_deal(id):
 
     # Fire automation rules if stage actually changed.
     if old_stage != new_stage:
-        try:
-            from modules.automations.engine import fire
-            fire('deal_stage_changed',
-                 {'deal': deal, 'old_stage': old_stage, 'new_stage': new_stage})
-        except Exception:
-            pass
+        _fire_automation('deal_stage_changed',
+                         {'deal': deal, 'old_stage': old_stage,
+                          'new_stage': new_stage})
 
     return jsonify(deal.to_dict())
 
@@ -250,6 +257,11 @@ def stats():
         'won_value': round(won_value, 2),
         'weighted_value': weighted,
     })
+
+
+def _fire_automation(event, payload):
+    from modules.automations.engine import fire
+    return fire(event, payload)
 
 
 def _parse_date(value):

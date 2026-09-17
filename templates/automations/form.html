@@ -68,7 +68,7 @@
         });
         window._triggers = triggers;
         window._actions = actions;
-        sel.value = {{ (rule.trigger | tojson) if is_edit else '"deal_stage_changed"' }};
+        sel.value = {{ (rule.trigger | tojson) if is_edit else '"deal_stage_changed"' | safe }};
 
         // Pre-seed actions from existing rule
         const existing = {% if is_edit and rule.actions %}{{ rule.actions | tojson }}{% else %}[]{% endif %};

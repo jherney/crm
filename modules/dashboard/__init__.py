@@ -3,6 +3,8 @@ SLUG = 'dashboard'
 DESCRIPTION = 'Overview, KPIs, pipeline totals, and recent activity.'
 ENABLED = True
 
+from datetime import datetime, timedelta
+
 from flask import Blueprint, jsonify, render_template
 from sqlalchemy import text
 
@@ -191,11 +193,12 @@ def winrate():
 
 @bp.route('/api/activity-by-type')
 def activity_by_type():
-    # Postgres-friendly: 30 days = INTERVAL '30 day'
+    cutoff = datetime.utcnow() - timedelta(days=30)
     rows = db.session.execute(
         text("SELECT type, COUNT(*) AS count FROM activities "
-             "WHERE created_at >= NOW() - INTERVAL '30 days' "
-             "GROUP BY type ORDER BY count DESC")
+             "WHERE created_at >= :cutoff "
+             "GROUP BY type ORDER BY count DESC"),
+        {'cutoff': cutoff}
     ).mappings().all()
     return jsonify([{'type': r['type'], 'count': r['count']} for r in rows])
 

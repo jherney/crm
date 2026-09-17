@@ -65,11 +65,10 @@
 {% block scripts %}
 <script>
     const contactId = {{ (contact.id | tojson) if is_edit else 'null' }};
-    const currentStatus = {{ (contact.status | tojson) if is_edit else '"lead"' }};
+    const currentStatus = {{ (contact.status | tojson) if is_edit else '"lead"' | safe }};
     const currentCompanyId = {{ (contact.company_id | tojson) if is_edit else 'null' }};
 
     document.addEventListener('DOMContentLoaded', async () => {
-        document.getElementById('status-select').value = currentStatus;
 
         const companies = await apiGet('/companies/api/companies');
         const companySelect = document.getElementById('company-select');

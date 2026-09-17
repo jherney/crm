@@ -162,6 +162,8 @@ def use_template(id):
     db.session.add(activity)
     tpl.use_count = (tpl.use_count or 0) + 1
     db.session.commit()
+    from modules.automations.engine import fire
+    fire('activity_created', {'activity': activity})
 
     return jsonify({
         'rendered': rendered,

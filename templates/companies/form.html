@@ -63,7 +63,7 @@
 {% block scripts %}
 <script>
     const companyId = {{ (company.id | tojson) if is_edit else 'null' }};
-    const currentStatus = {{ (company.status | tojson) if is_edit else '"prospect"' }};
+    const currentStatus = {{ (company.status | tojson) if is_edit else '"prospect"' | safe }};
 
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('status-select').value = currentStatus;

@@ -53,16 +53,13 @@ def list_activities():
         query = query.filter(Activity.contact_id == contact_id)
     if company_id:
         query = query.filter(Activity.company_id == company_id)
-    if 'status' in data:
-        status = data['status']
+    if status:
         if status == 'open':
             query = query.filter(Activity.completed == False)
         elif status == 'completed':
             query = query.filter(Activity.completed == True)
         elif status == 'overdue':
             query = query.filter(Activity.completed == False)
-            # SQLite: Activity.due_date < datetime text comparison
-            # Postgres: same comparison works against DateTime column
             query = query.filter(Activity.due_date < datetime.now(timezone.utc))
 
     sort_map = {
@@ -75,9 +72,9 @@ def list_activities():
     }
     # SQLite doesn't support nullslast() — fall back to created_at when ordering
     # by due_date if the chosen order isn't supported.
-    q = sort_map.get(sort, Activity.created_at.desc())
+    sort_expr = sort_map.get(sort, Activity.created_at.desc())
     try:
-        query = query.order_by(q)
+        query = query.order_by(sort_expr)
     except Exception:
         query = query.order_by(Activity.created_at.desc())
     return jsonify([a.to_dict() for a in query.all()])
@@ -102,7 +99,7 @@ def create_activity():
     )
     db.session.add(activity)
     db.session.commit()
-    _dispatch('activity_created', activity)
+    _fire_automation('activity_created', {'activity': activity})
     return jsonify(activity.to_dict()), 201
 
 
@@ -116,6 +113,7 @@ def get_activity(id):
 def update_activity(id):
     a = Activity.query.get_or_404(id)
     data = request.get_json() or {}
+    was_completed = a.completed
     for field in ['type', 'subject', 'body', 'outcome', 'owner',
                   'deal_id', 'contact_id', 'company_id']:
         if field in data:
@@ -123,13 +121,14 @@ def update_activity(id):
     if 'due_date' in data:
         a.due_date = _parse_dt(data['due_date'])
     if 'completed' in data:
-        was = a.completed
         a.completed = bool(data['completed'])
-        if not was and a.completed:
+        if not was_completed and a.completed:
             a.completed_at = datetime.now(timezone.utc)
-        elif was and not a.completed:
+        elif was_completed and not a.completed:
             a.completed_at = None
     db.session.commit()
+    if not was_completed and a.completed:
+        _fire_automation('activity_completed', {'activity': a})
     return jsonify(a.to_dict())
 
 
@@ -145,12 +144,15 @@ def delete_activity(id):
 def complete_activity(id):
     """Convenience endpoint for the UI's 'Mark complete' button."""
     a = Activity.query.get_or_404(id)
+    was_completed = a.completed
     a.completed = True
     a.completed_at = datetime.now(timezone.utc)
     data = request.get_json(silent=True) or {}
     if 'outcome' in data:
         a.outcome = data['outcome']
     db.session.commit()
+    if not was_completed:
+        _fire_automation('activity_completed', {'activity': a})
     return jsonify(a.to_dict())
 
 
@@ -226,10 +228,10 @@ def _parse_dt(value):
         return None
 
 
+def _fire_automation(event, payload):
+    from modules.automations.engine import fire
+    return fire(event, payload)
+
+
 def _dispatch(event, payload):
-    """Fire automation rules on event. Lazy import to avoid hard requirement."""
-    try:
-        from modules.automations.engine import fire
-        fire(event, payload)
-    except Exception:
-        pass
+    return _fire_automation(event, payload)
