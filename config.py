@@ -10,6 +10,6 @@ class Config:
         f'sqlite:///{BASE_DIR / "crm.db"}'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    PORT = int(os.environ.get('CRM_PORT', '5001'))
+    PORT = int(os.environ.get('PORT', os.environ.get('CRM_PORT', '5001')))
     DEBUG = os.environ.get('CRM_DEBUG', '1').lower() in ('1', 'true', 'yes')
     CORS_ORIGIN = os.environ.get('CRM_CORS_ORIGIN', '*')

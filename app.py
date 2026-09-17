@@ -20,6 +20,9 @@ def create_app(config_class=Config):
     return app
 
 
+app = create_app()
+
+
 def register_modules(app):
     for module in MODULES:
         if getattr(module, 'ENABLED', True):
