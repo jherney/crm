@@ -8,21 +8,6 @@ from models import db
 from modules import MODULES
 
 
-def create_app(config_class=Config):
-    app = Flask(__name__, static_folder='public', template_folder='templates')
-    app.config.from_object(config_class)
-    init_db(app)
-
-    register_modules(app)
-    register_global_routes(app)
-    register_cors(app)
-
-    return app
-
-
-app = create_app()
-
-
 def register_modules(app):
     for module in MODULES:
         if getattr(module, 'ENABLED', True):
@@ -66,6 +51,21 @@ def register_cors(app):
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
             return response
+
+
+def create_app(config_class=Config):
+    app = Flask(__name__, static_folder='public', template_folder='templates')
+    app.config.from_object(config_class)
+    init_db(app)
+
+    register_modules(app)
+    register_global_routes(app)
+    register_cors(app)
+
+    return app
+
+
+app = create_app()
 
 
 if __name__ == '__main__':
