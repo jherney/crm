@@ -7,9 +7,10 @@ PIDFILE="$ROOT/.crm.pid"
 PORT="${CRM_PORT:-5001}"
 
 # Ensure user-site-packages (psycopg2, sqlalchemy, flask) are importable
-# when this shell doesn't already have PYTHONUSERBASES set (cron, systemd, etc).
-if [ -z "${PYTHONPATH:-}" ] && [ -d "${HOME}/.local/lib/python$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')/site-packages" ]; then
-    export PYTHONPATH="${HOME}/.local/lib/python$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')/site-packages"
+# when this shell doesn't already have PYTHONPATH set (cron, systemd, etc).
+PYVER="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+if [ -z "${PYTHONPATH:-}" ] && [ -d "${HOME}/.local/lib/python${PYVER}/site-packages" ]; then
+    export PYTHONPATH="${HOME}/.local/lib/python${PYVER}/site-packages"
 fi
 
 # Determine the database URL.

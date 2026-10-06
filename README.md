@@ -24,6 +24,7 @@ python3 run.py
 - `companies` — `/companies/api/companies`
 - `email_templates` — `/email-templates/api/templates`, preview, use
 - `automations` — event fire/dispatch in engine
+- `events` — `/events/api/events`, RSVPs, upcoming, stats
 - `dashboard` — dashboard routes/models
 - `core` — core routes/models
 

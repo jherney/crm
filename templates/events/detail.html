@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'events' %}
+{% block title %}{{ event.title }} - Modular CRM{% endblock %}
+{% block page_title %}{{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <div>
+        <span class="status-pill">{{ event.status }}</span>
+        {% if event.date %}<span class="text-muted">{{ event.date.strftime('%b %d, %Y %H:%M') }}</span>{% endif %}
+    </div>
+    <div class="detail-actions">
+        <a class="btn btn-secondary" href="/events/{{ event.id }}/edit">Edit</a>
+        <button class="btn btn-danger" id="delete-event">Delete</button>
+    </div>
+</div>
+
+<p class="detail-description">{{ event.description or 'No description.' }}</p>
+<p><strong>Location:</strong> {{ event.location or '—' }} &nbsp;·&nbsp;
+   <strong>Organizer:</strong> {{ event.organizer or '—' }} &nbsp;·&nbsp;
+   <strong>Capacity:</strong> {{ event.capacity or 'unlimited' }}</p>
+
+<h2>RSVPs</h2>
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Attendee</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Added</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="rsvps-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+</div>
+
+<h3>Add RSVP</h3>
+<form id="rsvp-form" class="form form-inline">
+    <select id="rsvp-contact" class="filter-input">
+        <option value="">Select contact…</option>
+    </select>
+    <select id="rsvp-status" class="filter-input">
+        {% for s in ['attending', 'maybe', 'not_attending', 'waitlist'] %}
+        <option value="{{ s }}" {% if s == 'attending' %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Add RSVP</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const EVENT_ID = {{ event.id|tojson }};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadContacts();
+        await loadRsvps();
+
+        document.getElementById('rsvp-form').addEventListener('submit', addRsvp);
+        document.getElementById('delete-event').addEventListener('click', deleteEvent);
+    });
+
+    async function loadContacts() {
+        const contacts = await apiGet('/contacts/api/contacts');
+        const select = document.getElementById('rsvp-contact');
+        contacts.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.full_name || (c.first_name + ' ' + (c.last_name || ''));
+            select.appendChild(opt);
+        });
+    }
+
+    async function loadRsvps() {
+        const rsvps = await apiGet('/events/api/events/' + EVENT_ID + '/rsvps');
+        const tbody = document.getElementById('rsvps-tbody');
+        if (!rsvps.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">No RSVPs yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rsvps.map(r => `
+            <tr>
+                <td>${escapeHtml(r.attendee)}</td>
+                <td>${escapeHtml(r.status)}</td>
+                <td>${escapeHtml(r.notes || '')}</td>
+                <td>${new Date(r.created_at).toLocaleDateString()}</td>
+                <td><button class="btn btn-small btn-danger" onclick="removeRsvp('${r.id}')">Remove</button></td>
+            </tr>
+        `).join('');
+    }
+
+    async function addRsvp(ev) {
+        ev.preventDefault();
+        const contactId = document.getElementById('rsvp-contact').value;
+        if (!contactId) return;
+        await apiPost('/events/api/events/' + EVENT_ID + '/rsvps', {
+            contact_id: contactId,
+            status: document.getElementById('rsvp-status').value,
+        });
+        document.getElementById('rsvp-contact').value = '';
+        await loadRsvps();
+    }
+
+    async function removeRsvp(rsvpId) {
+        await apiDelete('/events/api/events/' + EVENT_ID + '/rsvps/' + rsvpId);
+        await loadRsvps();
+    }
+
+    async function deleteEvent() {
+        if (!confirm('Delete this event and all its RSVPs?')) return;
+        await apiDelete('/events/api/events/' + EVENT_ID);
+        window.location = '/events/';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'events' %}
+{% block title %}{{ 'Edit' if event else 'New' }} Event - Modular CRM{% endblock %}
+{% block page_title %}{{ 'Edit' if event else 'New' }} Event{% endblock %}
+
+{% block content %}
+<form id="event-form" class="form">
+    <div class="form-row">
+        <label>Title
+            <input type="text" id="title" required
+                   value="{{ event.title if event else '' }}">
+        </label>
+    </div>
+    <div class="form-row">
+        <label>Description
+            <textarea id="description" rows="3">{{ event.description if event else '' }}</textarea>
+        </label>
+    </div>
+    <div class="form-row">
+        <label>Date &amp; time
+            <input type="datetime-local" id="date" value="{{ event.date if event else '' }}">
+        </label>
+        <label>End (optional)
+            <input type="datetime-local" id="end_date" value="{{ event.end_date if event else '' }}">
+        </label>
+    </div>
+    <div class="form-row">
+        <label>Location
+            <input type="text" id="location" value="{{ event.location if event else '' }}">
+        </label>
+        <label>Organizer
+            <input type="text" id="organizer" value="{{ event.organizer if event else '' }}">
+        </label>
+    </div>
+    <div class="form-row">
+        <label>Capacity (0 = unlimited)
+            <input type="number" id="capacity" min="0" value="{{ event.capacity if event else 0 }}">
+        </label>
+        <label>Status
+            <select id="status">
+                {% for s in ['draft', 'published', 'cancelled', 'expired'] %}
+                <option value="{{ s }}" {% if event and event.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a class="btn btn-secondary" href="/events/">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const EVENT_ID = {{ event.id|tojson if event else 'null' }};
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('event-form').addEventListener('submit', saveEvent);
+    });
+
+    async function saveEvent(ev) {
+        ev.preventDefault();
+        const payload = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            date: document.getElementById('date').value || null,
+            end_date: document.getElementById('end_date').value || null,
+            location: document.getElementById('location').value,
+            organizer: document.getElementById('organizer').value,
+            capacity: parseInt(document.getElementById('capacity').value || '0', 10),
+            status: document.getElementById('status').value,
+        };
+        const result = EVENT_ID
+            ? await apiPut('/events/api/events/' + EVENT_ID, payload)
+            : await apiPost('/events/api/events', payload);
+        if (result && result.id) window.location = '/events/' + result.id;
+    }
+</script>
+{% endblock %}

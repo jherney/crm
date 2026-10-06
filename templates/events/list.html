@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% set active_section = 'events' %}
+{% block title %}Events - Modular CRM{% endblock %}
+{% block page_title %}Events{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <input type="search" id="event-search" placeholder="Search events…" class="filter-input">
+    <select id="status-filter" class="filter-input">
+        <option value="">All statuses</option>
+        <option value="draft">Draft</option>
+        <option value="published">Published</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="expired">Expired</option>
+    </select>
+    <div class="filter-spacer"></div>
+    <a class="btn btn-primary" href="/events/new">+ New Event</a>
+</div>
+
+<div class="data-table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>When</th>
+                <th>Location</th>
+                <th>Capacity</th>
+                <th>RSVPs</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="events-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadEvents();
+
+        document.getElementById('event-search').addEventListener('input', loadEvents);
+        document.getElementById('status-filter').addEventListener('change', loadEvents);
+    });
+
+    async function loadEvents() {
+        const q = document.getElementById('event-search').value;
+        const status = document.getElementById('status-filter').value;
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (status) params.set('status', status);
+        const events = await apiGet('/events/api/events?' + params.toString());
+        const tbody = document.getElementById('events-tbody');
+        if (!events.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">No events found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = events.map(e => {
+            const when = e.date ? new Date(e.date).toLocaleString() : '—';
+            const cap = e.capacity ? `${e.rsvp_counts.attending}/${e.capacity}` : e.rsvp_counts.attending;
+            return `
+            <tr>
+                <td><a href="/events/${e.id}">${escapeHtml(e.title)}</a></td>
+                <td>${when}</td>
+                <td>${escapeHtml(e.location || '—')}</td>
+                <td>${cap}</td>
+                <td>${e.rsvp_counts.total}</td>
+                <td>${escapeHtml(e.status)}</td>
+            </tr>`;
+        }).join('');
+    }
+</script>
+{% endblock %}

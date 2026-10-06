@@ -1,5 +1,5 @@
 from modules import core, dashboard, contacts, companies, deals
-from modules import activities, email_templates, automations
+from modules import activities, email_templates, automations, events
 
 MODULES = [
     core,
@@ -10,4 +10,5 @@ MODULES = [
     activities,
     email_templates,
     automations,
+    events,
 ]
