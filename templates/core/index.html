@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular CRM - Core</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Modular CRM</h1>
+            <nav>
+                <ul>
+                    <li><a href="/" class="nav-link active">Dashboard</a></li>
+                    <li><a href="/contacts" class="nav-link">Contacts</a></li>
+                    <li><a href="/companies" class="nav-link">Companies</a></li>
+                    <li><a href="/deals" class="nav-link">Deals</a></li>
+                    <li><a href="/activities" class="nav-link">Activities</a></li>
+                    <li><a href="/email-templates" class="nav-link">Email Templates</a></li>
+                    <li><a href="/automations" class="nav-link">Automations</a></li>
+                </ul>
+            </nav>
+        </header>
+        <main>
+            <div id="app">
+                <h2>Welcome to Modular CRM</h2>
+                <p>A modular Flask-based CRM system with modular routes, SQLAlchemy, automation event dispatch, and a runtime-only cleanup.</p>
+                <div class="card">
+                    <h3>Getting Started</h3>
+                    <ul>
+                        <li>Use the navigation above to explore different modules</li>
+                        <li>Each module has its own API endpoints for CRUD operations</li>
+                        <li>Check the health status at <code>/api/health</co></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+</html>
