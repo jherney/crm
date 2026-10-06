@@ -5,7 +5,7 @@
       "src": "backend/api.py",
       "use": "@vercel/python",
       "config": {
-        "entrypoint": "app"
+        "entrypoint": "backend.api:app"
       }
     }
   ],
