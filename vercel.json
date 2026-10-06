@@ -2,10 +2,10 @@
   "version": 2,
   "builds": [
     {
-      "src": "app.py",
+      "src": "backend/api.py",
       "use": "@vercel/python",
       "config": {
-        "entrypoint": "app:app"
+        "entrypoint": "app"
       }
     }
   ],
@@ -16,7 +16,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "app.py"
+      "dest": "backend/api.py"
     }
   ],
   "installCommand": "pip install -r requirements.txt",
