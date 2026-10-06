@@ -1,1 +1,22 @@
-{"version": 2, "builds": [{"src": "app.py", "use": "@vercel/flask"}], "routes": [{"src": "/public/(.*)", "dest": "/public/$1"}, {"src": "/(.*)", "dest": "app.py"}], "installCommand": "pip install -r requirements.txt", "buildCommand": "true", "devCommand": "python3 run.py"}
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/public/(.*)",
+      "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app.py"
+    }
+  ],
+  "installCommand": "pip install -r requirements.txt",
+  "buildCommand": "true",
+  "devCommand": "python3 run.py"
+}
